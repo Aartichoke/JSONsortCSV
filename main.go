@@ -11,7 +11,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
+	"time"
 )
 
 // Author: Daniel Foland
@@ -20,13 +22,15 @@ import (
 
 // define data structure for input json/csv
 type etl struct {
-	id          int64
-	name        string
-	discovered  string
-	description string
-	status      string
+	// Remember: json requires capital field names (eg Id instead of id)
+	Id          int
+	Name        string
+	Discovered  string
+	Description string
+	Status      string
 }
 
+// slice to hold input data
 var etlSlice []etl
 
 func main() {
@@ -98,20 +102,22 @@ func readInput() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			i64, err := strconv.ParseInt(line[0], 10, 64)
+			i, err := strconv.Atoi(line[0])
 			if err != nil {
 				log.Fatal(err)
 			}
 			etlSlice = append(etlSlice, etl{
-				id:          i64,
-				name:        line[1],
-				discovered:  line[2],
-				description: line[3],
-				status:      line[4],
+				Id:          i,
+				Name:        line[1],
+				Discovered:  line[2],
+				Description: line[3],
+				Status:      line[4],
 			})
 		}
 	}
-	// TODO verify etlSlice is populated here
+	if len(etlSlice) == 0 {
+		log.Fatal("Error: Data could not be stored from input file.")
+	}
 	fmt.Printf("Number of records processed: %d \n", len(etlSlice))
 }
 
@@ -120,24 +126,38 @@ func readInput() {
  *  Outputs - none
  */
 func runSort() {
-	// TODO determine ascending or descending
-
-	// determine date or status
-
-	/*	// parse int and date fields, fail on bad data format
-		t, err := time.Parse("2006-01-02", lines["discovered"])
-		if err != nil {
-			log.Fatal(err)
-		}
-	*/
-	// assign status field weights 0-2 ?
-
-	//perform sort
+	if flag.Lookup("sortfield").Value.String() == "status" {
+		// sort by first letter of status
+		sort.Slice(etlSlice, func(i, j int) bool {
+			if flag.Lookup("sortdirection").Value.String() == "ascending" {
+				return etlSlice[i].Status[0] > etlSlice[j].Status[0]
+			}
+			return etlSlice[i].Status[0] < etlSlice[j].Status[0]
+		})
+	} else {
+		// sort by date
+		sort.Slice(etlSlice, func(i, j int) bool {
+			t1, err := time.Parse("2006-01-02", etlSlice[i].Discovered)
+			if err != nil {
+				log.Fatal(err)
+			}
+			t2, err := time.Parse("2006-01-02", etlSlice[j].Discovered)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if flag.Lookup("sortdirection").Value.String() == "ascending" {
+				return t1.Sub(t2).Seconds() < 0
+			}
+			return t1.Sub(t2).Seconds() > 0
+		})
+	}
+	fmt.Println(etlSlice)
 }
 
 func writeData() {
 	// TODO detect if .json or .csv
 	// write out accordingly
+	// only columns selected
 	// verify that file exists?
 
 	fmt.Println("Output file: ")
