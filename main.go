@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -44,13 +45,13 @@ func main() {
 	writeData()
 }
 
-// TODO add function descriptions
+// parse command line inputs
 func parseCommandLine() {
 	// define command line arguments
 	inputPathPtr := flag.String("input", "", "Path to input .csv or .json")
 	sortFieldPtr := flag.String("sortfield", "discovered", "Field to sort input data by")
 	sortDirectionPtr := flag.String("sortdirection", "ascending", "Path to input CSV or JSON.")
-	columnsPtr := flag.String("columns", "", "Columns/fields to use in output")
+	columnsPtr := flag.String("columns", "Id,Name,Discovered,Description,Status", "Columns/fields to use in output. Capitalize each.")
 	flag.Parse()
 	// check if path is valid
 	if *inputPathPtr == "" {
@@ -71,9 +72,12 @@ func parseCommandLine() {
 	if !checkSortField(*sortFieldPtr) {
 		log.Fatal("Error: -sortfield input '", *sortFieldPtr, "' is invalid, it must be either 'status' or 'discovered'.")
 	}
-	// check sort field input
-	if !checkColumnsField(*columnsPtr) {
-		log.Fatal("Error:.", *columnsPtr)
+	// check column field input
+	columns := strings.Split(*columnsPtr, ",")
+	for _, col := range columns {
+		if !checkColumnsField(col) {
+			log.Fatal("Error: Invalid column: ", col)
+		}
 	}
 }
 
@@ -151,29 +155,62 @@ func runSort() {
 			return t1.Sub(t2).Seconds() > 0
 		})
 	}
-	fmt.Println(etlSlice)
 }
 
+/*  writeData() write etl struct to opposite file type
+ *  Inputs - global populated etlslice
+ *  Outputs - writes file 'output'
+ */
 func writeData() {
-	// TODO detect if .json or .csv
-	// write out accordingly
-	// only columns selected
-	// verify that file exists?
-
-	fmt.Println("Output file: ")
-}
-
-/***** Helper functions below *****/
-func checkStatus(status string) bool {
-	switch status {
-	case
-		"New", "In progress", "Done":
-		return true
-	default:
-		return false
+	if filepath.Ext(flag.Lookup("input").Value.String()) == ".csv" {
+		file, _ := json.MarshalIndent(etlSlice, "", " ")
+		_ = ioutil.WriteFile("output.json", file, 0644)
+		fmt.Println("Output file: output.json")
+	} else {
+		file, err := os.Create("output.csv")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+		writer := csv.NewWriter(file)
+		defer writer.Flush()
+		for _, thisetl := range etlSlice {
+			columns := strings.Split(flag.Lookup("columns").Value.String(), ",")
+			var output []string
+			for _, col := range columns {
+				// there's no dynamic struct access, so we have to do this manually because Id is not a string
+				// Either assign field to an int, or handle each field individually
+				switch col {
+				case
+					"Id":
+					output = append(output, strconv.Itoa(thisetl.Id))
+				case
+					"Name":
+					output = append(output, thisetl.Name)
+				case
+					"Discovered":
+					output = append(output, thisetl.Discovered)
+				case
+					"Description":
+					output = append(output, thisetl.Description)
+				case
+					"Status":
+					output = append(output, thisetl.Status)
+				}
+			}
+			if err := writer.Write(output); err != nil {
+				log.Fatal(err)
+			}
+		}
+		fmt.Println("Output file: output.csv")
 	}
 }
 
+/***** Helper functions below *****/
+/*  checkSortDirection() checks to if sort direction is valid
+ *  Inputs - string to compare
+ *  Outputs - true when string is valid, false otherwise
+ */
 func checkSortDirection(direction string) bool {
 	switch direction {
 	case
@@ -184,6 +221,10 @@ func checkSortDirection(direction string) bool {
 	}
 }
 
+/*  checkSortField() checks to if sort field is valid
+ *  Inputs - string to compare
+ *  Outputs - true when string is valid, false otherwise
+ */
 func checkSortField(field string) bool {
 	switch field {
 	case
@@ -194,6 +235,10 @@ func checkSortField(field string) bool {
 	}
 }
 
+/*  checkFileExtension() checks to if input file extension is valid
+ *  Inputs - string to check for json or csv
+ *  Outputs - true when csv/json matches
+ */
 func checkFileExtension(path string) bool {
 	switch filepath.Ext(path) {
 	case
@@ -204,7 +249,16 @@ func checkFileExtension(path string) bool {
 	}
 }
 
+/*  checkColumnsField() checks to see if input string is a valid column
+ *  Inputs - string to compare to valid columns
+ *  Outputs - true when string matches a valid column, false there is no match
+ */
 func checkColumnsField(cols string) bool {
-	// TODO need to check cols here
-	return true
+	switch cols {
+	case
+		"Id", "Name", "Discovered", "Description", "Status":
+		return true
+	default:
+		return false
+	}
 }
