@@ -1,0 +1,3 @@
+[{"id": 2, "name": "Misdirected fax", "discovered": "2018-04-02", "description": "Doctor lost his laptop while on vacation.", "status": "New" },
+  {"id": 1, "name": "Lost laptop", "discovered": "2018-02-19", "description": "Doctor lost his laptop while on vacation.", "status": "Done" },
+  { "id": 3, "name": "Lost iPad with medical record", "discovered": "2018-04-01", "description": "Nurse misplaced a patient's medical record while in the office.", "status": "In progress" }]
